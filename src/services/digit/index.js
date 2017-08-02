@@ -1,79 +1,105 @@
-import TreeModel from 'tree-model';
-import removeAccents from 'remove-accents';
-const treeModel = new TreeModel();
-const _ = require('lodash');
+const removeAccents = require('remove-accents');
 const digitsMap = require('./digits.json');
 const util = require('util');
-const CircularJSON = require('circular-json');
+const path = require('path');
+const jsonfile = require('jsonfile');
+const fs = require('fs');
+const cp = require('child_process');
+const ProgressBar = require('progress');
 
-export default () => {
+module.exports = function(config) {
 
-  const tree = treeModel.parse({});
-  const words = {};
+  const digitsToWords = {};
+  const cacheFilesLoaded = {};
 
 	return Object.freeze({
     addWord,
+    prepareIndexes,
     search
   });
 
-  function search(digitsId) {
-    console.log(JSON.stringify(tree.model));
-    const parentNode = tree.first(hasId(digitsId));
-    if (parentNode === undefined) {
-      return [];
+	function prepareIndexes() {
+
+	  const cachePath = getCachePath();
+    const digitsCachePath = getDigitsCachePath();
+
+    const digitsCache = {};
+    const wordWithTFIDF = jsonfile.readFileSync(path.join(cachePath, 'terms_tf_idf.json'));
+
+    for (let word in wordWithTFIDF) {
+      const frequency = wordWithTFIDF[word];
+      addWord(word, frequency);
     }
-    let resultWords = [];
-    parentNode.walk(node => {
-      if (words.hasOwnProperty(node.model.id)) {
-        // resultWords.push(words[node.model.id]);
-      } 
-    });
-    return _.flatten(resultWords);
+
+    for (let digit in digitsToWords) {
+      if (digit.length > 12 || digit.length < 3) {
+        continue;
+      }
+
+      const firstThreeDigits = digit.slice(0, 3);
+      if (!digitsCache.hasOwnProperty(firstThreeDigits)) {
+        digitsCache[firstThreeDigits] = {};
+      }
+      digitsCache[firstThreeDigits][digit] = digitsToWords[digit];
+    }
+
+    for (let firstThreeDigits in digitsCache) {
+      const firstThreeDigitsCachePath = path.join(digitsCachePath, `${firstThreeDigits}.json`);
+      jsonfile.writeFileSync(firstThreeDigitsCachePath, digitsCache[firstThreeDigits]);
+    }
   }
 
-  function addWord(word) {
-    const digits = getDigits(word);
-    const digitsId = parseInt(digits.join(''));
+  function search(digitsId) {
+    const digitsCachePath = getDigitsCachePath();
 
-    if (!words.hasOwnProperty(digitsId)) {
-      assertNode(treeModel.parse({ id: digitsId }));
-      words[digitsId] = true;
-    }
-  } 
-
-  function assertNode(childNode) {
-    if (typeof tree.first(hasId(childNode.model.id)) === 'undefined') {
-      const parentId = getParentId(childNode.model.id);
-      if (parentId !== 0) {
-        const parentNode = tree.first(hasId(parentId)); 
-        if (typeof parentNode !== 'undefined') {
-          parentNode.addChild(childNode);
-        } else {
-          const newParentNode = treeModel.parse({ id: parentId });
-          newParentNode.addChild(childNode);
-          assertNode(newParentNode);          
-        }
-      } else {
-        tree.addChild(childNode);
+    const firstThreeDigits = digitsId.slice(0, 3);
+	  if (!cacheFilesLoaded.hasOwnProperty(firstThreeDigits)) {
+      const firstThreeDigitsCachePath = path.join(digitsCachePath, `${firstThreeDigits}.json`);
+      if (fs.existsSync(firstThreeDigitsCachePath)) {
+        Object.assign(digitsToWords, jsonfile.readFileSync(firstThreeDigitsCachePath));
       }
     }
+
+    if (!digitsToWords.hasOwnProperty(digitsId)) {
+      return false;
+    } else {
+      return digitsToWords[digitsId];
+    }
   }
 
-  function hasId(id) {
-    return node => node.model.id === id;
+  function addWord(word, frequency) {
+    const digits = getDigits(word);
+    const digitsId = digits.join('');
+
+    if (!digitsToWords.hasOwnProperty(digitsId)) {
+      digitsToWords[digitsId] = [];
+    }
+
+    digitsToWords[digitsId].push([
+      word,
+      frequency
+    ]);
   }
 
-  function getParentId(childId) {
-    return parseInt(childId / 10);
+  function getCachePath() {
+    const cachePath = path.join(process.cwd(), config.get('cachePath'));
+    cp.execSync(`mkdir -p ${cachePath}`);
+    return cachePath;
   }
 
-}
+  function getDigitsCachePath() {
+    const digitsCachePath = path.join(process.cwd(), config.get('cachePath'), 'digits');
+    cp.execSync(`mkdir -p ${digitsCachePath}`);
+    return digitsCachePath;
+  }
 
-export function getDigits(word) {
+};
+
+function getDigits(word) {
   const normalizedWord = convertToASCII(word);
   return Array.from(normalizedWord).map(char => digitsMap[char]);
 }
 
-export function convertToASCII(word) {
+function convertToASCII(word) {
   return removeAccents(word).toLowerCase();
 }
