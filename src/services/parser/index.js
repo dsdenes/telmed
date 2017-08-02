@@ -139,6 +139,11 @@ module.exports = function Parser(config) {
     for (let word in termFrequency) {
       const frequency = termFrequency[word];
       const documentCountContainsWord = corpusAppearanceCount[word] || 0;
+
+      if (documentCountContainsWord < 3) {
+        return false;
+      }
+
       const tfidf = frequency / tokenCount * Math.log(documentCount / (1 + documentCountContainsWord));
 
       if (!wordTfidf.hasOwnProperty(word) || wordTfidf[word] < tfidf) {
