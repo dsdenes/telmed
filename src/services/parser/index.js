@@ -9,7 +9,7 @@ const ProgressBar = require('progress');
 
 const workers = WorkerFarm(require.resolve('./worker'));
 
-module.exports = function Parser(config) {
+module.exports = function Parser(config, digit) {
 
   const corpusAppearanceCount = {};
   const wordTfidf = {};
@@ -27,6 +27,7 @@ module.exports = function Parser(config) {
       .then(saveCorpusAppearance(cachePath))
       .then(() => processFiles(dataPath, calculateTFIDF))
       .then(saveTFIDF(cachePath))
+      .then(digit.prepareIndexes)
       .then(onProcessSucceed)
       .catch(onProcessFailed);
   }
