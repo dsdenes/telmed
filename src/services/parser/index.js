@@ -22,6 +22,7 @@ module.exports = function Parser(config, digit) {
   function start() {
     const dataPath = config.get('dataPath');
     const cachePath = config.get('cachePath');
+    cp.execSync(`mkdir -p ${cachePath}`);
 
     processFiles(dataPath, aggregateCorpusAppearance)
       .then(saveCorpusAppearance(cachePath))
