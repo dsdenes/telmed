@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "build": "babel src/ -d lib/",
+    "build": "babel src/ -d lib/ && npm run copy",
+    "copy": "cp ./src/services/digit/digits.json ./lib/services/digit/ && cp ./src/services/parser/stopwords_en.json ./lib/services/parser/",
     "test": "jest",
     "postinstall": "npm run build"
   },

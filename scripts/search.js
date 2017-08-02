@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 const commander = require('commander');
-const di = require('../src/services');
+const di = require('../lib/services');
 const config = di.config;
 const digit = di.digit;
 
