@@ -59,7 +59,7 @@ module.exports = function Parser(config, digit) {
   function processFiles(dataPath, resultAggregator) {
     return new Promise((resolve, reject) => {
 
-      const totalFileCount = parseInt(cp.execSync(`ls ${path.join(dataPath, '*.txt')} | wc -l`).toString());
+      const totalFileCount = parseInt(cp.execSync(`find ${dataPath} -type f -name '*.txt' | wc -l`).toString());
       const progressBar = initProgressBar(totalFileCount);
 
       const waitForAllResultHandlers = q.defer();
